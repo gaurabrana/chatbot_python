@@ -18,15 +18,33 @@
     <div id="user-input">
         <input type="text" id="message" placeholder="Type your message" />
         <button onclick="sendMessage()">Send</button>
+        <button onclick="clearChat()">Clear</button>
     </div>
     <script>
-        async function sendMessage() {
+        // Function to update the chat box with the conversation history
+        function updateChatUI(conversation) {
             const messageBox = document.getElementById('chat-box');
+            messageBox.innerHTML = '';  // Clear the chat box
+
+            // Loop through the conversation and append each message
+            conversation.forEach(entry => {
+                const messageElement = document.createElement('p');
+                if (entry.sender === 'user') {
+                    messageElement.innerHTML = `<strong>You:</strong> ${entry.message}`;
+                } else {
+                    messageElement.innerHTML = `<strong>Bot:</strong> ${entry.message}`;
+                }
+                messageBox.appendChild(messageElement);
+            });
+
+            // Scroll to the bottom of the chat box
+            messageBox.scrollTop = messageBox.scrollHeight;
+        }
+
+        // Function to send the message to the backend and update the UI
+        async function sendMessage() {
             const messageInput = document.getElementById('message');
             const userMessage = messageInput.value;
-
-            // Display user's message
-            messageBox.innerHTML += `<p><strong>You:</strong> ${userMessage}</p>`;
 
             // Send the message to the backend
             const response = await fetch('http://127.0.0.1:5000/chat', {
@@ -36,10 +54,35 @@
             });
             const data = await response.json();
 
-            // Display bot's reply
-            messageBox.innerHTML += `<p><strong>Bot:</strong> ${data.reply}</p>`;
+            // Update the chat box with the conversation history
+            updateChatUI(data.conversation);
+
+            // Clear the input field
             messageInput.value = '';
         }
+
+        // Fetch the initial conversation history when the page loads
+        async function fetchConversation() {
+            const response = await fetch('http://127.0.0.1:5000/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: '' })
+            });
+            const data = await response.json();
+            updateChatUI(data.conversation);  // Populate the chat box with the initial conversation
+        }
+
+        async function clearChat() {
+            // Send a request to clear the session data on the backend
+            await fetch('http://127.0.0.1:5000/clear', {
+                method: 'POST'
+            });
+            // Clear the chat UI
+            document.getElementById('chat-box').innerHTML = '';
+        }
+
+        // Fetch the conversation when the page is loaded
+        window.onload = fetchConversation;
     </script>
 </body>
 </html>
