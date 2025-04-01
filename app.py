@@ -1,25 +1,26 @@
 from flask import Flask, request, jsonify, send_from_directory, session
-from flask_cors import CORS
-from flask_session import Session  # Import Flask-Session
+from flask_session import Session
 from datetime import timedelta
 
-# Initialize Flask app
+from utils.flask_secret_key import ensure_secret_key, load_secret_key
+from utils.api_handlers import extract_location, extract_topic, get_weather, get_news, get_cat_fact
+
+ensure_secret_key()
+
+# --- Flask App --- #
 app = Flask(__name__, static_folder='static')
-app.secret_key = "a basic chatbot"  # Necessary for using session
-CORS(app)  # Enable Cross-Origin Resource Sharing
+app.secret_key = load_secret_key()
 
-# Configure server-side session
-app.config['SESSION_TYPE'] = 'filesystem'  # Use the file system to store sessions
-app.config['SESSION_PERMANENT'] = True     # Enable persistent sessions
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Sessions last for 7 days
-Session(app)  # Initialize server-side session
+# Session Config
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+Session(app)
 
-# Basic HTML rendering
 @app.route('/')
 def index():
     return send_from_directory('static', 'index.html')
 
-# Basic route for chatbot
 @app.route('/chat', methods=['POST'])
 def chat():
     user_message = request.json.get('message').lower()  # Convert to lowercase for easier matching
@@ -32,30 +33,36 @@ def chat():
     if user_message:
         session['conversation'].append({'sender': 'user', 'message': user_message})
 
-    responses = {
-        "hello": "Hi there! How can I assist you?",
-        "how are you": "I'm just a bot, but I'm functioning perfectly!",
-        "bye": "Goodbye! Have a great day!"
+    # API Response Handling
+    api_triggers = {
+        'weather': lambda: get_weather(extract_location(user_message)),
+        'news': lambda: get_news(extract_topic(user_message)),
+        'fact': get_cat_fact,
+        'cat': get_cat_fact
     }
 
     # Find a matching response or return a default
-    bot_reply = responses.get(user_message, "I didn't quite understand that. Can you try again?")
+    bot_reply = "I didn't understand that. Try 'weather in London', 'tech news', or 'tell me a fact'"
     
-    # If the bot reply is not a default message, append it to the conversation
-    if user_message:
-        session['conversation'].append({'sender': 'bot', 'message': bot_reply})
+    for trigger, api_func in api_triggers.items():
+        if trigger in user_message:
+            bot_reply = api_func() or "API service unavailable"
+            break
 
-    return jsonify({
-        'reply': bot_reply,
-        'conversation': session['conversation']  # Return the full conversation history
-    })
+    # Store conversation    
+    session['conversation'].append({'sender': 'bot', 'message': bot_reply})
+    
+    return jsonify({'reply': bot_reply, 'conversation': session['conversation']})    
 
-# Clear conversation history
 @app.route('/clear', methods=['POST'])
 def clear():
-    session.pop('conversation', None)  # Clear conversation data from the session
+    session.pop('conversation', None)
     return jsonify({'status': 'success'})
 
-# Run the app
+@app.route('/get-conversation', methods=['GET'])
+def get_conversation():
+    # Return existing conversation without modifying it
+    return jsonify({'conversation': session.get('conversation', [])})
+
 if __name__ == '__main__':
     app.run(debug=True)

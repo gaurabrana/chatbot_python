@@ -1,26 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chatbot</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        #chat-box { border: 1px solid #ddd; padding: 10px; height: 300px; overflow-y: scroll; }
-        #user-input { margin-top: 10px; display: flex; }
-        #message { flex: 1; padding: 5px; }
-        button { padding: 5px 10px; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        #chat-box {
+            border: 1px solid #ddd;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+        }
+
+        #user-input {
+            margin-top: 10px;
+            display: flex;
+        }
+
+        #message {
+            flex: 1;
+            padding: 5px;
+        }
+
+        button {
+            padding: 5px 10px;
+        }
     </style>
 </head>
+
 <body>
     <h1>Chatbot</h1>
     <div id="chat-box"></div>
     <div id="user-input">
-        <input type="text" id="message" placeholder="Type your message" />
+        <input type="text" id="message" placeholder="Type your message" onkeydown="handleKeyPress(event)" />
         <button onclick="sendMessage()">Send</button>
         <button onclick="clearChat()">Clear</button>
     </div>
     <script>
+        function handleKeyPress(event) {
+            // Check if Enter key was pressed (key code 13)
+            if (event.keyCode === 13 || event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
         // Function to update the chat box with the conversation history
         function updateChatUI(conversation) {
             const messageBox = document.getElementById('chat-box');
@@ -45,6 +74,10 @@
         async function sendMessage() {
             const messageInput = document.getElementById('message');
             const userMessage = messageInput.value;
+            console.log(userMessage);
+            if (userMessage == '') {
+                return;
+            }
 
             // Send the message to the backend
             const response = await fetch('http://127.0.0.1:5000/chat', {
@@ -63,13 +96,9 @@
 
         // Fetch the initial conversation history when the page loads
         async function fetchConversation() {
-            const response = await fetch('http://127.0.0.1:5000/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: '' })
-            });
+            const response = await fetch('http://127.0.0.1:5000/get-conversation');
             const data = await response.json();
-            updateChatUI(data.conversation);  // Populate the chat box with the initial conversation
+            updateChatUI(data.conversation);
         }
 
         async function clearChat() {
@@ -85,4 +114,5 @@
         window.onload = fetchConversation;
     </script>
 </body>
+
 </html>
