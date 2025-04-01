@@ -1,12 +1,10 @@
 # api_handlers.py
-from pathlib import Path
 from dotenv import load_dotenv
 import requests
 import os
 from typing import Optional
 
-env_path = Path(__file__).parent / "environments" / "dev.env"
-load_dotenv(env_path)  # Loads from .env file
+load_dotenv()  # Loads from .env file
 # --- API Config --- #
 WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
 NEWS_API_KEY = os.getenv('NEWS_API_KEY')
