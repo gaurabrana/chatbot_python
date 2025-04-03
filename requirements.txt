@@ -2,3 +2,6 @@ Flask
 Flask-Cors
 Flask-Session
 python-dotenv
+llama-cpp-python
+transformers
+torch

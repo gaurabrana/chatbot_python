@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory, session
 from flask_session import Session
 from datetime import timedelta
 
+from utils.ai_model import HybridAssistant
 from utils.flask_secret_key import ensure_secret_key, load_secret_key
 from utils.api_handlers import extract_location, extract_topic, get_weather, get_news, get_cat_fact
 
@@ -16,6 +17,7 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 Session(app)
+assistant = HybridAssistant()
 
 @app.route('/')
 def index():
@@ -33,21 +35,7 @@ def chat():
     if user_message:
         session['conversation'].append({'sender': 'user', 'message': user_message})
 
-    # API Response Handling
-    api_triggers = {
-        'weather': lambda: get_weather(extract_location(user_message)),
-        'news': lambda: get_news(extract_topic(user_message)),
-        'fact': get_cat_fact,
-        'cat': get_cat_fact
-    }
-
-    # Find a matching response or return a default
-    bot_reply = "I didn't understand that. Try 'weather in London', 'tech news', or 'tell me a fact'"
-    
-    for trigger, api_func in api_triggers.items():
-        if trigger in user_message:
-            bot_reply = api_func() or "API service unavailable"
-            break
+    bot_reply = assistant.generate_response(user_message)
 
     # Store conversation    
     session['conversation'].append({'sender': 'bot', 'message': bot_reply})
