@@ -24,9 +24,9 @@ Clone this repository to your local machine:
 git clone https://github.com/yourusername/your-repository.git
 cd your-repository
 ```
-### 2. Install the dependencies listed in requirements.txt by running:
+### 2. In bash environment run this which will setup everything automatically.
 ```
-pip install -r requirements.txt
+sh install.sh
 ```
 ### 3. To start the Flask app, use the following command:
 ```
