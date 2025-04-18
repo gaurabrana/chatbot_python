@@ -37,3 +37,25 @@ python app.py
 http://127.0.0.1:5000
 ```
 ### 5. This project is licensed under the MIT License
+### 6. Common issues while project setup
+##### A: Failed building wheel for llama-cpp-python
+CMake Error: CMAKE_C_COMPILER not set, after EnableLanguage
+      CMake Error: CMAKE_CXX_COMPILER not set, after EnableLanguage
+      -- Configuring incomplete, errors occurred!
+      CMake configuration failed
+      [end of output]
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+  ERROR: Failed building wheel for llama-cpp-python
+```
+Solution:
+1. Install Visual Studio Build Tools (Required)
+Download Visual Studio 2022 Build Tools.
+
+Run the installer and select:
+
+"Desktop development with C++" (required for nmake and MSVC compiler).
+
+Ensure "MSVC (Microsoft C++ Compiler)" and "Windows SDK" are checked.
+
+Click Install.
+```

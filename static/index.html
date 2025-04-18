@@ -8,28 +8,107 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
         }
 
         #chat-box {
             border: 1px solid #ddd;
-            padding: 10px;
-            height: 300px;
-            overflow-y: scroll;
+            padding: 15px;
+            height: 500px;
+            margin-bottom: 15px;
+            overflow-y: auto;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .message {
+            margin-bottom: 12px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background: #e3f2fd;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot-message {
+            background: #f1f1f1;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
         }
 
         #user-input {
-            margin-top: 10px;
             display: flex;
+            gap: 10px;
         }
 
         #message {
-            flex: 1;
-            padding: 5px;
+            flex-grow: 1;
+            padding: 10px;
+            border-radius: 20px;
+            border: 1px solid #ddd;
         }
 
         button {
-            padding: 5px 10px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            background: #4285f4;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .loading-dots {
+            display: inline-block;
+        }
+
+        .loading-dots span {
+            opacity: 0;
+            animation: loading 1.5s infinite;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes loading {
+            0% {
+                opacity: 0;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .loading-message {
+            color: #666;
+            font-style: italic;
+            padding: 8px 12px;
+            margin: 4px 0;
+        }
+
+        .error-message {
+            color: #d32f2f;
+            padding: 8px 12px;
+            margin: 4px 0;
         }
     </style>
 </head>
@@ -39,80 +118,134 @@
     <div id="chat-box"></div>
     <div id="user-input">
         <input type="text" id="message" placeholder="Type your message" onkeydown="handleKeyPress(event)" />
-        <button onclick="sendMessage()">Send</button>
-        <button onclick="clearChat()">Clear</button>
+        <button id="send-button" onclick="sendMessage()">Send</button>
+        <button id="clear-button" onclick="clearChat()">Clear</button>
     </div>
+
     <script>
+        // Global variable to track loading state
+        let isLoading = false;
+
         function handleKeyPress(event) {
-            // Check if Enter key was pressed (key code 13)
-            if (event.keyCode === 13 || event.key === 'Enter') {
+            if ((event.keyCode === 13 || event.key === 'Enter') && !isLoading) {
                 sendMessage();
             }
         }
 
-        // Function to update the chat box with the conversation history
         function updateChatUI(conversation) {
-            const messageBox = document.getElementById('chat-box');
-            messageBox.innerHTML = '';  // Clear the chat box
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML = '';
 
-            // Loop through the conversation and append each message
             conversation.forEach(entry => {
-                const messageElement = document.createElement('p');
-                if (entry.sender === 'user') {
-                    messageElement.innerHTML = `<strong>You:</strong> ${entry.message}`;
-                } else {
-                    messageElement.innerHTML = `<strong>Bot:</strong> ${entry.message}`;
-                }
-                messageBox.appendChild(messageElement);
+                const messageDiv = document.createElement('div');
+                messageDiv.className = entry.sender === 'user' ? 'message user-message' : 'message bot-message';
+                
+                const senderSpan = document.createElement('span');
+                senderSpan.style.fontWeight = 'bold';
+                senderSpan.textContent = entry.sender === 'user' ? 'You: ' : 'Bot: ';
+                
+                const contentSpan = document.createElement('span');
+                contentSpan.textContent = entry.message;
+                
+                messageDiv.appendChild(senderSpan);
+                messageDiv.appendChild(contentSpan);
+                chatBox.appendChild(messageDiv);
             });
 
-            // Scroll to the bottom of the chat box
-            messageBox.scrollTop = messageBox.scrollHeight;
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // Function to send the message to the backend and update the UI
         async function sendMessage() {
+            if (isLoading) return;
+            
             const messageInput = document.getElementById('message');
-            const userMessage = messageInput.value;
-            console.log(userMessage);
-            if (userMessage == '') {
-                return;
+            const sendButton = document.getElementById('send-button');
+            const clearButton = document.getElementById('clear-button');
+            const userMessage = messageInput.value.trim();
+
+            if (!userMessage) return;
+
+            // Set loading state
+            isLoading = true;
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            clearButton.disabled = true;
+            sendButton.textContent = 'Processing...';
+
+            // Add loading indicator
+            const chatBox = document.getElementById('chat-box');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading-message';
+            loadingDiv.innerHTML = '<div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>';
+            chatBox.appendChild(loadingDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: userMessage })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                updateChatUI(data.conversation);
+            } catch (error) {
+                console.error('Error:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = 'Failed to get response. Please try again.';
+                chatBox.appendChild(errorDiv);
+            } finally {
+                // Remove loading indicator if it exists
+                const loadingElement = document.querySelector('.loading-message');
+                if (loadingElement) {
+                    chatBox.removeChild(loadingElement);
+                }
+
+                // Reset UI state
+                isLoading = false;
+                messageInput.value = '';
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                clearButton.disabled = false;
+                sendButton.textContent = 'Send';
+                messageInput.focus();
             }
-
-            // Send the message to the backend
-            const response = await fetch('http://127.0.0.1:5000/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMessage })
-            });
-            const data = await response.json();
-
-            // Update the chat box with the conversation history
-            updateChatUI(data.conversation);
-
-            // Clear the input field
-            messageInput.value = '';
-        }
-
-        // Fetch the initial conversation history when the page loads
-        async function fetchConversation() {
-            const response = await fetch('http://127.0.0.1:5000/get-conversation');
-            const data = await response.json();
-            updateChatUI(data.conversation);
         }
 
         async function clearChat() {
-            // Send a request to clear the session data on the backend
-            await fetch('http://127.0.0.1:5000/clear', {
-                method: 'POST'
-            });
-            // Clear the chat UI
-            document.getElementById('chat-box').innerHTML = '';
+            if (isLoading) return;
+            
+            try {
+                const response = await fetch('http://127.0.0.1:5000/clear', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    document.getElementById('chat-box').innerHTML = '';
+                }
+            } catch (error) {
+                console.error('Error clearing chat:', error);
+            }
         }
 
-        // Fetch the conversation when the page is loaded
-        window.onload = fetchConversation;
+        // Initialize conversation on page load
+        async function initConversation() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/get-conversation');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateChatUI(data.conversation);
+                }
+            } catch (error) {
+                console.error('Error fetching conversation:', error);
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('DOMContentLoaded', initConversation);
     </script>
 </body>
-
 </html>

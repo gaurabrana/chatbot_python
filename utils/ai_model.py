@@ -1,34 +1,28 @@
-from typing import Optional
+# Updated HybridAssistant class
+from typing import List, Dict, Optional
 from llama_cpp import Llama
 from utils.api_handlers import get_news, get_weather
 
 class HybridAssistant:
     def __init__(self):
-        # Initialize Llama with Metal acceleration
         self.llm = Llama(
-            model_path="mistral-7b-instruct-v0.1.Q4_K_M.gguf",  # ARM-compatible quantized model
-            n_ctx=2048,  # Context window size
-            n_gpu_layers=1,  # Enable Metal acceleration (M1/M2)
+            model_path="mistral-7b-instruct-v0.1.Q4_K_M.gguf",
+            n_ctx=4096,  # Increased context window
+            n_gpu_layers=0,
             verbose=False
         )
         
     def needs_internet(self, query: str) -> bool:
-        """Check if query requires live data"""
         triggers = ["weather", "news", "stock", "latest", "current", "today's"]
         return any(trigger in query.lower() for trigger in triggers)
     
     def extract_location(self, query: str) -> str:
-        """Extract location from query (e.g., 'weather in Paris' -> 'Paris')"""
-        # Your existing implementation
         return query.split("weather in")[-1].strip().split()[0]
     
     def extract_topic(self, query: str) -> str:
-        """Extract topic from query (e.g., 'news about AI' -> 'AI')"""
-        # Your existing implementation
         return query.split("about")[-1].strip().split()[0]
     
     def call_api(self, query: str) -> Optional[str]:
-        """Route to appropriate API"""
         if "weather" in query:
             location = self.extract_location(query)
             return get_weather(location)
@@ -37,29 +31,39 @@ class HybridAssistant:
             return get_news(topic)
         return None
     
-    def generate_response(self, query: str) -> str:
-        """Hybrid generation with llama.cpp"""
+    def generate_response(self, query: str, conversation_history: List[Dict[str, str]]) -> str:
+        """Generate response with conversation context"""
+        # Format conversation history for Mistral
+        formatted_history = self._format_history(conversation_history)
+        
         if self.needs_internet(query):
             api_result = self.call_api(query)
             if api_result:
-                # Format for Mistral instruct template
-                prompt = f"""<s>[INST] Combine this information:
+                prompt = f"""{formatted_history}[INST] Combine this information:
                 User Question: {query}
                 API Data: {api_result}
                 Provide a concise, helpful response [/INST]"""
-                
-                output = self.llm(
-                    prompt,
-                    max_tokens=200,
-                    temperature=0.7,
-                    stop=["</s>"]
-                )
-                return output['choices'][0]['text']
+            else:
+                prompt = f"{formatted_history}[INST] {query} [/INST]"
+        else:
+            prompt = f"{formatted_history}[INST] {query} [/INST]"
         
-        # Pure local response
         output = self.llm(
-            f"<s>[INST] {query} [/INST]",
-            max_tokens=200,
-            temperature=0.7
+            prompt,
+            max_tokens=500,
+            temperature=0.7,
+            stop=["</s>"],
+            echo=False
         )
-        return output['choices'][0]['text']
+        
+        return output['choices'][0]['text'].strip()
+    
+    def _format_history(self, history: List[Dict[str, str]]) -> str:
+        """Format conversation history for Mistral instruct model"""
+        formatted = []
+        for msg in history:
+            if msg["sender"] == "user":
+                formatted.append(f"[INST] {msg['message']} [/INST]")
+            else:
+                formatted.append(msg['message'])
+        return "\n".join(formatted) + "\n" if formatted else ""
